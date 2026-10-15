@@ -1,6 +1,6 @@
-# Vehicle Service Management API
+# Vehicle Service Management
 
-Backend service for managing vehicles, drivers, assignments, service records, and cost logs.
+Service for managing vehicles, drivers, assignments, service records, and cost logs.
 
 ---
 
@@ -33,7 +33,6 @@ Open `http://localhost:8000/docs`.
 ### Database for teammates
 
 - Each person runs the backend on their own laptop with their own database, then runs `python seed.py` to get the same sample data.
-- To use the **same** data, one person's backend runs on the lab network and others call it at `http://<that-ip>:8000` (start with `--host 0.0.0.0`).
 - Frontend and agent developers do NOT connect to MySQL directly. They only call the API.
 - If MySQL is not running or `.env` is omitted, the backend automatically defaults to local SQLite (`sqlite:///./vehicle_service.db`).
 
