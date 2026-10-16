@@ -26,10 +26,83 @@ def run_analytics_agent(request: AgentRequest) -> AgentResponse:
     req_id = set_current_request_id(request.context.get("request_id"))
     logger.info(f"Processing analytics request: '{request.message}'", extra={"request_id": req_id})
     tools_called: list[str] = []
-
-    try:
-        # TODO (Member 4): Integrate your ML predictive maintenance pipeline and LangGraph analytical loop here.
+    try: 
         text = request.message.lower().strip()
+
+        # 0. Predictive maintenance — read-only ML operation
+        maintenance_keywords = [
+            "predict maintenance",
+            "predictive maintenance",
+            "maintenance prediction",
+            "maintenance risk",
+            "predict risk",
+            "risk score",
+            "failure prediction",
+            "predict failure",
+            "component failure",
+            "breakdown risk",
+            "maintenance probability",
+        ]
+
+        if any(keyword in text for keyword in maintenance_keywords):
+            context = request.context or {}
+            vehicle_id = context.get("vehicle_id")
+
+            if vehicle_id is None:
+                match = re.search(
+                    r"\bvehicle\s+(\d+)\b",
+                    text,
+                )
+                if match:
+                    vehicle_id = int(match.group(1))
+
+            if vehicle_id is None:
+                return AgentResponse(
+                    status="partial",
+                    answer="Please specify a vehicle ID, for example: 'Predict maintenance risk for vehicle 0'.",
+                    agent_used="analytics_agent",
+                )
+
+            features = context.get("features")
+
+            if not isinstance(features, dict) or not features:
+                return AgentResponse(
+                    status="partial",
+                    answer=(
+                        f"I identified vehicle {vehicle_id}, but its "
+                        "operational sensor features were not provided. "
+                        "The model requires 106 features. No prediction was made."
+                    ),
+                    data={
+                        "vehicle_id": vehicle_id,
+                        "required_feature_count": 106,
+                    },
+                    agent_used="analytics_agent",
+                )
+
+            tools_called.append("predict_vehicle_maintenance")
+
+            result = operations.predict_vehicle_maintenance(
+                vehicle_id=int(vehicle_id),
+                features=features,
+            )
+
+            risk = result["maintenance_risk"]
+            score = float(result["risk_score"])
+
+            return AgentResponse(
+                status="success",
+                answer=(
+                    f"Maintenance risk for vehicle {vehicle_id}: {risk}. "
+                    f"Estimated risk score: {score:.2%}. "
+                    "This is a model estimate, not a guarantee of the "
+                    "vehicle's mechanical condition."
+                ),
+                data=result,
+                agent_used="analytics_agent",
+                tools_called=tools_called,
+            )
+
 
         # 1. Costs summary: e.g. "total expense summary grouped by vehicle and month"
         if any(kw in text for kw in ["cost summary", "costs summary", "expense summary", "total expense"]):
@@ -105,3 +178,5 @@ def run_analytics_agent(request: AgentRequest) -> AgentResponse:
             tools_called=tools_called,
             request_id=req_id,
         )
+
+

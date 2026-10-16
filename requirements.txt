@@ -6,3 +6,7 @@ cryptography
 pydantic
 python-dotenv
 openai
+langgraph
+httpx
+requests
+pytest

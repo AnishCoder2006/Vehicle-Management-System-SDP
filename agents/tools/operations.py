@@ -567,3 +567,28 @@ def get_stats_summary() -> StatsSummaryOutput:
 
     data = request_api("GET", "/stats/summary")
     return StatsSummaryOutput.model_validate(data)
+
+import requests
+
+
+ML_API_URL = "http://localhost:8001"
+
+
+def predict_vehicle_maintenance(vehicle_id: int, features: dict):
+    """
+    Read-only ML prediction.
+    Does not modify fleet data.
+    """
+
+    response = requests.post(
+        f"{ML_API_URL}/predict",
+        json={
+            "vehicle_id": vehicle_id,
+            "features": features
+        },
+        timeout=10
+    )
+
+    response.raise_for_status()
+
+    return response.json()

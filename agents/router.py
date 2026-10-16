@@ -236,7 +236,30 @@ def classify_intent(message: str, context: Optional[dict[str, Any]] = None) -> R
             reasoning="Query targets service due date detection or maintenance alerts.",
         )
 
-    # 4. Analytics Agent patterns: summary stats, cost summaries, financial aggregations
+    # 4. Analytics Agent patterns: predictive maintenance, stats, and costs
+
+    maintenance_keywords = [
+        "predict maintenance",
+        "predictive maintenance",
+        "maintenance prediction",
+        "maintenance risk",
+        "predict risk",
+        "risk score",
+        "failure prediction",
+        "predict failure",
+        "component failure",
+        "breakdown risk",
+        "maintenance probability",
+    ]
+
+    if any(kw in text for kw in maintenance_keywords):
+        return RouteDecision(
+            intent=Intent.ANALYTICS,
+            target_agents=["analytics_agent"],
+            confidence=0.95,
+            reasoning="Query requests an ML-based predictive-maintenance assessment.",
+        )
+
     analytics_keywords = [
         "fleet statistics",
         "stats summary",
@@ -252,6 +275,7 @@ def classify_intent(message: str, context: Optional[dict[str, Any]] = None) -> R
         "grouped by vehicle",
         "by month",
     ]
+
     if any(kw in text for kw in analytics_keywords):
         return RouteDecision(
             intent=Intent.ANALYTICS,
@@ -259,6 +283,7 @@ def classify_intent(message: str, context: Optional[dict[str, Any]] = None) -> R
             confidence=0.95,
             reasoning="Query asks for aggregated stats or cost summaries.",
         )
+
 
     # 5. Vehicle Operations Agent patterns: vehicles, drivers, assignments, services, costs
     ops_keywords = [
