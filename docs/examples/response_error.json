@@ -1,0 +1,10 @@
+{
+  "status": "error",
+  "answer": "Unable to complete assignment: Vehicle 4 is currently 'in_service' and cannot be assigned. Only vehicles with status 'available' can be assigned.",
+  "data": null,
+  "agent_used": "vehicle_agent",
+  "tools_called": [
+    "get_vehicle_by_id"
+  ],
+  "error": "HTTP 400 Bad Request: Vehicle with id 4 is not available (current status: in_service)"
+}

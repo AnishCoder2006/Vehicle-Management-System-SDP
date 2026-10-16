@@ -1,0 +1,19 @@
+{
+  "status": "needs_confirmation",
+  "answer": "You are about to assign vehicle 11 (Toyota HiAce) to driver 1 (John Doe). Vehicle status will change from 'available' to 'assigned'. Would you like me to proceed?",
+  "data": {
+    "action": "create_assignment",
+    "summary": "Assign vehicle 11 (Toyota HiAce, plate KBZ-4567) to driver 1 (John Doe). Vehicle status will change to 'assigned'.",
+    "parameters": {
+      "vehicle_id": 11,
+      "driver_id": 1
+    },
+    "precheck_passed": true
+  },
+  "agent_used": "vehicle_agent",
+  "tools_called": [
+    "get_vehicle_by_id",
+    "get_driver_by_id"
+  ],
+  "error": null
+}

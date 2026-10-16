@@ -1,0 +1,44 @@
+{
+  "status": "success",
+  "answer": "Found 3 vehicles due for service or overdue: KAA-1001 (overdue by 3 days), KBB-2002 (due in 2 days), and KCC-3003 (due in 5 days).",
+  "data": [
+    {
+      "id": 1,
+      "plate_number": "KAA-1001",
+      "make": "Toyota",
+      "model": "Corolla",
+      "year": 2021,
+      "vehicle_type": "car",
+      "mileage": 24500,
+      "status": "assigned",
+      "next_service_date": "2026-10-13"
+    },
+    {
+      "id": 2,
+      "plate_number": "KBB-2002",
+      "make": "Ford",
+      "model": "Transit",
+      "year": 2020,
+      "vehicle_type": "van",
+      "mileage": 48000,
+      "status": "assigned",
+      "next_service_date": "2026-10-18"
+    },
+    {
+      "id": 3,
+      "plate_number": "KCC-3003",
+      "make": "Isuzu",
+      "model": "NPR",
+      "year": 2019,
+      "vehicle_type": "truck",
+      "mileage": 85000,
+      "status": "assigned",
+      "next_service_date": "2026-10-21"
+    }
+  ],
+  "agent_used": "automation_agent",
+  "tools_called": [
+    "get_due_service_vehicles"
+  ],
+  "error": null
+}

@@ -1,0 +1,24 @@
+{
+  "status": "partial",
+  "answer": "Retrieved 3 vehicles due for service, but automatic booking requires individual customer confirmation for each vehicle before scheduling.",
+  "data": {
+    "completed_subtasks": [
+      {
+        "agent": "automation_agent",
+        "result": "Identified 3 due vehicles (IDs: 1, 2, 3)"
+      }
+    ],
+    "pending_subtasks": [
+      {
+        "agent": "vehicle_agent",
+        "action": "create_service",
+        "reason": "Awaiting customer name and specific service details"
+      }
+    ]
+  },
+  "agent_used": "master_agent",
+  "tools_called": [
+    "get_due_service_vehicles"
+  ],
+  "error": null
+}
