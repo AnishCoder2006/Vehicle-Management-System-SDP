@@ -1,0 +1,109 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FleetFlow | Vehicle Management</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>🚘 FleetFlow</h2>
+    <p class="muted">VEHICLE MANAGEMENT</p>
+    <nav>
+      <a href="#overview" class="active">▦ Overview</a>
+      <a href="#vehicles">🚙 Vehicles</a>
+      <a href="#drivers">👥 Drivers</a>
+      <a href="#assignments">⇄ Assignments</a>
+      <a href="#services">🔧 Service Records</a>
+      <a href="#costs">₹ Cost Tracking</a>
+    </nav>
+    <div class="sidebar-bottom">Fleet operations<br><span>Management portal</span></div>
+  </aside>
+
+  <main>
+    <header>
+      <div>
+        <p class="muted">FLEET MANAGEMENT / OVERVIEW</p>
+        <h1>Dashboard Overview</h1>
+        <p class="subtitle">Monitor your fleet, assignments and maintenance.</p>
+      </div>
+      <div class="avatar">FM</div>
+    </header>
+
+    <section id="overview">
+      <div class="welcome">
+        <div>
+          <p class="eyebrow">FLEET OPERATIONS CENTER</p>
+          <h2>Your fleet, at a glance.</h2>
+          <p>Manage vehicles, track availability and stay ahead of service schedules.</p>
+        </div>
+        <div class="welcome-icon">🚘</div>
+      </div>
+
+      <div class="stats">
+        <article class="stat">
+          <div class="stat-top"><span>Total Vehicles</span><span class="stat-icon">🚘</span></div>
+          <h2 id="totalVehicles">—</h2><p>Registered in fleet</p>
+        </article>
+        <article class="stat">
+          <div class="stat-top"><span>Available</span><span class="stat-icon green">✓</span></div>
+          <h2 id="availableVehicles">—</h2><p>Ready for assignment</p>
+        </article>
+        <article class="stat">
+          <div class="stat-top"><span>Assigned</span><span class="stat-icon blue">⇄</span></div>
+          <h2 id="assignedVehicles">—</h2><p>Currently in use</p>
+        </article>
+        <article class="stat">
+          <div class="stat-top"><span>Due for Service</span><span class="stat-icon orange">⚙</span></div>
+          <h2 id="dueVehicles">—</h2><p>Require attention</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="vehicles">
+      <div class="panel-heading">
+        <div><h2>Vehicle Registry</h2><p>Overview of registered fleet vehicles</p></div>
+        <button onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>VEHICLE</th><th>REGISTRATION</th><th>STATUS</th><th>DETAILS</th></tr></thead>
+          <tbody id="vehicleRows">
+            <tr><td colspan="4" class="empty">Loading vehicle records…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="lower-grid">
+      <section class="panel" id="services">
+        <div class="panel-heading"><div><h2>Maintenance Watch</h2><p>Recent vehicle service records</p></div></div>
+        <div id="serviceList" class="service-list"><p class="empty">Loading service records…</p></div>
+      </section>
+      <section class="panel" id="drivers">
+        <div class="panel-heading"><div><h2>Fleet Snapshot</h2><p>Current operational status</p></div></div>
+        <div class="snapshot-row"><span>Available vehicles</span><strong id="snapshotAvailable">—</strong></div>
+        <div class="snapshot-row"><span>Assigned vehicles</span><strong id="snapshotAssigned">—</strong></div>
+        <div class="snapshot-row"><span>In service</span><strong id="snapshotService">—</strong></div>
+        <div class="snapshot-note" id="connectionStatus">Connecting to fleet API…</div>
+      </section>
+    </div>
+
+    <section class="panel" id="assignments">
+      <div class="panel-heading"><div><h2>Assignments</h2><p>Manage active vehicle assignments through the team API.</p></div></div>
+      <p class="muted">Use the API documentation to review and manage assignment records.</p>
+      <a class="api-link" href="http://localhost:8000/docs" target="_blank" rel="noreferrer">Open API Documentation ↗</a>
+    </section>
+
+    <section class="panel" id="costs">
+      <div class="panel-heading"><div><h2>Cost Tracking</h2><p>Review fleet expenses and cost summaries.</p></div></div>
+      <a class="api-link" href="http://localhost:8000/docs" target="_blank" rel="noreferrer">Explore cost endpoints ↗</a>
+    </section>
+
+    <footer>FleetFlow · Vehicle Management System</footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
