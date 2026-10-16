@@ -254,5 +254,6 @@ MOCK_STORE = get_fresh_mock_db()
 
 def reset_mock_db() -> None:
     """Reset mock storage to fresh initial seed state."""
-    global MOCK_STORE
-    MOCK_STORE = get_fresh_mock_db()
+    fresh = get_fresh_mock_db()
+    MOCK_STORE.clear()
+    MOCK_STORE.update(fresh)
