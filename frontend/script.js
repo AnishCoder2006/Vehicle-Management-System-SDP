@@ -1,5 +1,5 @@
 
-const API_BASE = "https://legendary-space-telegram-69xgp74pjjxphrgj-8000.app.github.dev";
+const API_BASE = "http://127.0.0.1:8000";
 
 const $ = (id) => document.getElementById(id);
 
@@ -11,6 +11,21 @@ async function fetchAPI(path) {
   }
 
   return response.json();
+}
+
+async function fetchMaintenancePrediction(vehicleId) {
+  try {
+    return await fetchAPI(
+      `/vehicles/${encodeURIComponent(vehicleId)}/maintenance-prediction`
+    );
+  } catch (error) {
+    console.error(
+      `Could not fetch maintenance prediction for vehicle ${vehicleId}:`,
+      error
+    );
+
+    return null;
+  }
 }
 
 function getList(data) {
@@ -73,8 +88,26 @@ function renderVehicles(vehicles) {
       <tr>
         <td><strong>${escapeHTML(name)}</strong></td>
         <td>${escapeHTML(registration)}</td>
-        <td><span class="status ${statusClass}">${escapeHTML(formatStatus(status))}</span></td>
+        <td>
+          <span class="status ${statusClass}">
+            ${escapeHTML(formatStatus(status))}
+          </span>
+        </td>
         <td>#${escapeHTML(id)}</td>
+        <td>
+          <button
+            type="button"
+            class="prediction-btn"
+            data-vehicle-id="${escapeHTML(id)}"
+          >
+            View prediction
+          </button>
+          <div
+            class="prediction-result"
+            id="prediction-${escapeHTML(id)}"
+            aria-live="polite"
+          ></div>
+        </td>
       </tr>`;
   }).join("");
 }
@@ -187,3 +220,60 @@ async function loadDashboard() {
 
 
 document.addEventListener("DOMContentLoaded", loadDashboard);
+
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest(".prediction-btn");
+
+  if (!button) return;
+
+  const vehicleId = button.dataset.vehicleId;
+  const resultElement = $(`prediction-${vehicleId}`);
+
+  if (!resultElement) return;
+
+  button.disabled = true;
+  button.textContent = "Loading...";
+
+  resultElement.textContent = "";
+
+  try {
+    const prediction = await fetchMaintenancePrediction(vehicleId);
+
+    if (!prediction) {
+      resultElement.textContent = "Prediction unavailable.";
+      return;
+    }
+
+    const risk = String(prediction.maintenance_risk || "UNKNOWN")
+      .toUpperCase();
+
+    const percentage = Number(prediction.risk_percentage);
+
+    resultElement.textContent = Number.isFinite(percentage)
+      ? `${risk} · ${percentage.toFixed(2)}%`
+      : risk;
+
+    resultElement.classList.remove(
+      "risk-low",
+      "risk-medium",
+      "risk-high"
+    );
+
+    const riskClass = {
+      LOW: "risk-low",
+      MEDIUM: "risk-medium",
+      HIGH: "risk-high"
+    }[risk];
+
+    if (riskClass) {
+      resultElement.classList.add(riskClass);
+    }
+
+  } catch (error) {
+    console.error(error);
+    resultElement.textContent = "Could not load prediction.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "View prediction";
+  }
+});

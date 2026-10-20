@@ -378,3 +378,33 @@ footer {
 @media (max-width: 400px) {
   .stats { grid-template-columns: 1fr; }
 }
+
+.prediction-btn {
+  background: #eef0ff;
+  color: #4c63e7;
+  border-color: #dfe4ff;
+  white-space: nowrap;
+}
+
+.prediction-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.prediction-result {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.risk-low {
+  color: #168b68;
+}
+
+.risk-medium {
+  color: #b87525;
+}
+
+.risk-high {
+  color: #c0392b;
+}

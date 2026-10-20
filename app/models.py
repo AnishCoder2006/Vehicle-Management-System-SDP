@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -21,6 +21,7 @@ class Vehicle(Base):
     assignments = relationship("Assignment", back_populates="vehicle", cascade="all, delete-orphan")
     service_records = relationship("ServiceRecord", back_populates="vehicle", cascade="all, delete-orphan")
     cost_logs = relationship("CostLog", back_populates="vehicle", cascade="all, delete-orphan")
+    sensor_readings = relationship("VehicleSensorReading", back_populates="vehicle", cascade="all, delete-orphan")
 
 
 class Driver(Base):
@@ -74,3 +75,14 @@ class CostLog(Base):
     log_date = Column(Date, default=date.today, nullable=False)
 
     vehicle = relationship("Vehicle", back_populates="cost_logs")
+
+class VehicleSensorReading(Base):
+    __tablename__ = "vehicle_sensor_readings"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=False, index=True)
+    time_step = Column(Integer, nullable=False)
+    features = Column(JSON, nullable=False)
+    recorded_at = Column(DateTime, default=datetime.now, nullable=False)
+
+    vehicle = relationship("Vehicle", back_populates="sensor_readings")

@@ -1,134 +1,204 @@
-from pathlib import Path
+from __future__ import annotations
+
 import json
-from datetime import datetime
+from datetime import date
+from pathlib import Path
 
 import joblib
-
-from data_loader import load_operational_data, load_target_data
-from preprocessing import prepare_training_data
-
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
+import pandas as pd
+from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    roc_auc_score
-)
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+from fleetflow_data import get_fleet_data
+from preprocessing import FEATURE_COLUMNS, build_feature_dataframe
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[1]
+
 MODEL_DIR = BASE_DIR / "models"
 ARTIFACT_DIR = BASE_DIR / "artifacts"
 
-MODEL_DIR.mkdir(exist_ok=True)
-ARTIFACT_DIR.mkdir(exist_ok=True)
+MODEL_PATH = MODEL_DIR / "maintenance_model.joblib"
+METADATA_PATH = ARTIFACT_DIR / "model_metadata.json"
 
 
-def main():
+def create_development_target(
+    vehicles: list[dict],
+    services: list[dict],
+) -> pd.Series:
+    """
+    Development-only target.
 
-    print("Loading data...")
+    A vehicle is labelled 1 when it currently has an active
+    maintenance requirement:
 
-    operational = load_operational_data()
-    target = load_target_data()
+        pending service
+        OR
+        in-progress service
 
-    print("Preparing data...")
+    This target is useful for pipeline development, but it is NOT
+    a real future-failure label.
 
-    X, y = prepare_training_data(
-        operational,
-        target
+    A future version should use historical time-based records to
+    define something like:
+        "maintenance required within next 30 days"
+    """
+
+    service_by_vehicle = {}
+
+    for vehicle in vehicles:
+        service_by_vehicle[vehicle["id"]] = False
+
+    for service in services:
+        if service["status"] in {"pending", "in_progress"}:
+            service_by_vehicle[service["vehicle_id"]] = True
+
+    return pd.Series(
+        [
+            int(service_by_vehicle.get(vehicle["id"], False))
+            for vehicle in vehicles
+        ]
     )
 
-    print(f"Training samples: {len(X)}")
-    print(f"Features: {X.shape[1]}")
+
+def train_model():
+    print("Loading FleetFlow data from backend...")
+
+    data = get_fleet_data()
+
+    vehicles = data["vehicles"]
+    services = data["services"]
+    costs = data["costs"]
+
+    print(f"Vehicles: {len(vehicles)}")
+    print(f"Services: {len(services)}")
+    print(f"Costs: {len(costs)}")
+
+    if len(vehicles) < 10:
+        raise RuntimeError(
+            "Not enough vehicles to build the development dataset."
+        )
+
+    # -----------------------------
+    # Feature engineering
+    # -----------------------------
+
+    X = build_feature_dataframe(
+        vehicles=vehicles,
+        services=services,
+        costs=costs,
+    )
+
+    y = create_development_target(
+        vehicles=vehicles,
+        services=services,
+    )
+
+    X = X.drop(columns=["vehicle_id"])
+
+    print("\nFeatures:")
+    print(list(X.columns))
 
     print("\nTarget distribution:")
-    print(y.value_counts())
+    print(y.value_counts().to_dict())
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y
+    # Need both classes for Logistic Regression.
+    if y.nunique() < 2:
+        raise RuntimeError(
+            "The current FleetFlow seed data contains only one target class. "
+            "Add more historical/service examples before training."
+        )
+
+    # -----------------------------
+    # Preprocessing
+    # -----------------------------
+
+    numeric_pipeline = Pipeline(
+        steps=[
+            (
+                "imputer",
+                SimpleImputer(strategy="median"),
+            ),
+            (
+                "scaler",
+                StandardScaler(),
+            ),
+        ]
     )
 
-    pipeline = Pipeline([
-        (
-            "imputer",
-            SimpleImputer(strategy="median")
-        ),
-        (
-            "scaler",
-            StandardScaler()
-        ),
-        (
-            "model",
-            LogisticRegression(
-                max_iter=1000,
-                class_weight="balanced"
+    preprocessor = ColumnTransformer(
+        transformers=[
+            (
+                "numeric",
+                numeric_pipeline,
+                FEATURE_COLUMNS,
             )
-        )
-    ])
-
-    print("\nTraining model...")
-
-    pipeline.fit(X_train, y_train)
-
-    predictions = pipeline.predict(X_test)
-    probabilities = pipeline.predict_proba(X_test)[:, 1]
-
-    print("\nClassification Report:")
-    print(
-        classification_report(
-            y_test,
-            predictions,
-            zero_division=0
-        )
+        ],
+        remainder="drop",
     )
 
-    print("\nConfusion Matrix:")
-    print(confusion_matrix(y_test, predictions))
+    # -----------------------------
+    # Model
+    # -----------------------------
 
-    auc = roc_auc_score(
-        y_test,
-        probabilities
+    model = Pipeline(
+        steps=[
+            (
+                "preprocessor",
+                preprocessor,
+            ),
+            (
+                "classifier",
+                LogisticRegression(
+                    class_weight="balanced",
+                    max_iter=1000,
+                    random_state=42,
+                ),
+            ),
+        ]
     )
 
-    print(f"\nROC-AUC: {auc:.4f}")
+    model.fit(X, y)
 
-    model_path = MODEL_DIR / "maintenance_model.joblib"
+    # -----------------------------
+    # Save model
+    # -----------------------------
 
-    joblib.dump(
-        pipeline,
-        model_path
-    )
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+
+    joblib.dump(model, MODEL_PATH)
 
     metadata = {
-        "model_name": "maintenance_risk_model",
-        "model_version": "1.0.0",
+        "model_name": "fleetflow_maintenance_risk_model",
+        "model_version": "2.0.0",
         "algorithm": "LogisticRegression",
-        "training_date": datetime.utcnow().isoformat(),
-        "features": list(X.columns),
-        "feature_count": len(X.columns),
-        "roc_auc": float(auc)
+        "feature_count": len(FEATURE_COLUMNS),
+        "features": FEATURE_COLUMNS,
+        "training_rows": len(X),
+        "target": "active_maintenance_requirement",
+        "target_definition": (
+            "1 if the vehicle currently has a pending or "
+            "in-progress service, otherwise 0"
+        ),
+        "training_type": "development_prototype",
+        "warning": (
+            "This model is trained on the current FleetFlow seed data. "
+            "It is not a validated future-maintenance prediction model."
+        ),
+        "training_date": date.today().isoformat(),
     }
 
-    with open(
-        ARTIFACT_DIR / "model_metadata.json",
-        "w"
-    ) as file:
-        json.dump(
-            metadata,
-            file,
-            indent=4
-        )
+    with open(METADATA_PATH, "w", encoding="utf-8") as file:
+        json.dump(metadata, file, indent=4)
 
-    print("\nModel saved:")
-    print(model_path)
+    print("\nModel trained successfully.")
+    print(f"Model: {MODEL_PATH}")
+    print(f"Metadata: {METADATA_PATH}")
 
 
 if __name__ == "__main__":
-    main()
+    train_model()

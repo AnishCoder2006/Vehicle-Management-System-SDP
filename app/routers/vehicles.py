@@ -2,6 +2,8 @@ from datetime import date, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import os
+import requests
 
 from app.database import get_db
 from app.models import Assignment, CostLog, ServiceRecord, Vehicle
@@ -142,3 +144,61 @@ def get_vehicle_history(id: int, db: Session = Depends(get_db)):
         service_records=[ServiceRecordResponse.model_validate(s) for s in services],
         cost_logs=[CostLogResponse.model_validate(c) for c in costs],
     )
+
+
+@router.get(
+    "/{id}/maintenance-prediction",
+    summary="Predict vehicle maintenance risk",
+)
+def predict_maintenance(id: int, db: Session = Depends(get_db)):
+
+    vehicle = (
+        db.query(Vehicle)
+        .filter(Vehicle.id == id)
+        .first()
+    )
+
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehicle with id {id} not found",
+        )
+
+    ml_api_url = os.getenv(
+        "ML_API_URL",
+        "http://127.0.0.1:8001",
+    ).rstrip("/")
+
+    try:
+        response = requests.post(
+            f"{ml_api_url}/predict",
+            json={
+                "vehicle_id": id,
+            },
+            timeout=15,
+        )
+
+        response.raise_for_status()
+
+        prediction = response.json()
+
+    except requests.RequestException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The maintenance prediction service is unavailable.",
+        ) from exc
+
+    return {
+        "vehicle_id": id,
+        "plate_number": vehicle.plate_number,
+        "maintenance_risk": prediction["maintenance_risk"],
+        "risk_score": prediction["risk_score"],
+        "risk_percentage": prediction["risk_percentage"],
+        "model_version": prediction["model_version"],
+        "prediction_type": prediction.get(
+            "prediction_type",
+            "development_prototype",
+        ),
+        "features": prediction.get("features", {}),
+    }
+
