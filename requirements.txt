@@ -10,3 +10,7 @@ langgraph
 httpx
 requests
 pytest
+pandas
+numpy
+scikit-learn
+joblib
