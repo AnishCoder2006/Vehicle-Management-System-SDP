@@ -219,7 +219,11 @@ async function loadDashboard() {
 }
 
 
-document.addEventListener("DOMContentLoaded", loadDashboard);
+document.addEventListener("DOMContentLoaded", () => {
+    loadDashboard();
+    loadAssignments();
+    loadCosts();
+});
 
 document.addEventListener("click", async (event) => {
   const button = event.target.closest(".prediction-btn");
@@ -276,4 +280,355 @@ document.addEventListener("click", async (event) => {
     button.disabled = false;
     button.textContent = "View prediction";
   }
+});
+
+let assignmentRecords = [];
+let assignmentVehicles = [];
+let assignmentDrivers = [];
+
+function formatAssignmentDate(value) {
+    return value ? String(value).replace("T", " ").slice(0, 16) : "—";
+}
+
+async function loadAssignments() {
+    const tbody = document.getElementById("assignmentRows");
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">Loading assignments...</td></tr>`;
+
+    try {
+        const [assignments, vehicles, drivers] = await Promise.all([
+            fetchAPI("/assignments"),
+            fetchAPI("/vehicles"),
+            fetchAPI("/drivers")
+        ]);
+
+        assignmentRecords = getList(assignments);
+        assignmentVehicles = getList(vehicles);
+        assignmentDrivers = getList(drivers);
+
+        renderAssignments();
+    } catch (error) {
+        console.error("Could not load assignments:", error);
+        tbody.innerHTML = `<tr><td colspan="7" class="empty">Could not load assignments. Check the backend.</td></tr>`;
+    }
+}
+
+function renderAssignments() {
+    const tbody = document.getElementById("assignmentRows");
+    const filter = document.getElementById("assignmentFilter").value;
+
+    const active = assignmentRecords.filter(item => item.is_active);
+    const released = assignmentRecords.filter(item => !item.is_active);
+
+    document.getElementById("totalAssignments").textContent = assignmentRecords.length;
+    document.getElementById("activeAssignments").textContent = active.length;
+    document.getElementById("releasedAssignments").textContent = released.length;
+
+    const filtered = assignmentRecords.filter(item => {
+        if (filter === "active") return item.is_active;
+        if (filter === "released") return !item.is_active;
+        return true;
+    });
+
+    if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty">No assignments found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(item => {
+        const vehicle = assignmentVehicles.find(v => v.id === item.vehicle_id);
+        const driver = assignmentDrivers.find(d => d.id === item.driver_id);
+
+        const vehicleName = vehicle
+            ? `${vehicle.make || ""} ${vehicle.model || ""} · ${vehicle.plate_number || ""}`.trim()
+            : `Vehicle #${item.vehicle_id}`;
+
+        const driverName = driver ? driver.name : `Driver #${item.driver_id}`;
+
+        return `
+            <tr>
+                <td>#${escapeHTML(item.id)}</td>
+                <td>${escapeHTML(vehicleName)}</td>
+                <td>${escapeHTML(driverName)}</td>
+                <td>${escapeHTML(formatAssignmentDate(item.assigned_at))}</td>
+                <td>${escapeHTML(formatAssignmentDate(item.released_at))}</td>
+                <td>
+                    <span class="status ${item.is_active ? "assigned" : "available"}">
+                        ${item.is_active ? "Active" : "Released"}
+                    </span>
+                </td>
+                <td>
+                    ${item.is_active
+                        ? `<button type="button" class="release-assignment-btn" data-id="${escapeHTML(item.id)}">Release</button>`
+                        : "—"}
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+document.getElementById("assignmentFilter").addEventListener("change", renderAssignments);
+
+document.addEventListener("click", async event => {
+    const button = event.target.closest(".release-assignment-btn");
+    if (!button) return;
+
+    const assignmentId = button.dataset.id;
+    const message = document.getElementById("assignmentMessage");
+
+    if (!confirm("Release this vehicle assignment?")) return;
+
+    button.disabled = true;
+    message.textContent = "Releasing assignment...";
+
+    try {
+        const response = await fetch(
+            `${API_BASE}/assignments/${encodeURIComponent(assignmentId)}/release`,
+            { method: "POST" }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Request failed: ${response.status}`);
+        }
+
+        message.textContent = "Assignment released successfully!";
+        await loadAssignments();
+        await loadDashboard();
+    } catch (error) {
+        console.error(error);
+        message.textContent = "Could not release assignment. Please try again.";
+        button.disabled = false;
+    }
+});
+
+let costRecords = [];
+
+async function loadCosts() {
+    const tbody = document.getElementById("costRows");
+    tbody.innerHTML =
+        `<tr><td colspan="5">Loading costs...</td></tr>`;
+
+    try {
+        const [costs, summary] = await Promise.all([
+            fetchAPI("/costs"),
+            fetchAPI("/costs/summary")
+        ]);
+
+        costRecords = getList(costs);
+
+        document.getElementById("totalCost").textContent =
+            Number(summary.grand_total || 0).toFixed(2);
+
+        for (const category of ["fuel", "service", "parts"]) {
+            const total = costRecords
+                .filter(c => c.category === category)
+                .reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+            document.getElementById(category + "Cost").textContent =
+                total.toFixed(2);
+        }
+
+        renderCosts();
+    } catch (error) {
+        console.error("Could not load costs:", error);
+        tbody.innerHTML =
+            `<tr><td colspan="5">Could not load cost records.</td></tr>`;
+    }
+}
+
+function renderCosts() {
+    const tbody = document.getElementById("costRows");
+    const search = document.getElementById("costSearch").value.toLowerCase();
+    const category = document.getElementById("costCategoryFilter").value;
+
+    const filtered = costRecords.filter(c =>
+        (category === "all" || c.category === category) &&
+        `${c.description || ""} ${c.category} ${c.vehicle_id}`
+            .toLowerCase().includes(search)
+    );
+
+    document.getElementById("costRecordCount").textContent =
+        `${filtered.length} records`;
+
+    if (!filtered.length) {
+        tbody.innerHTML =
+            `<tr><td colspan="5">No matching cost records.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(c => `
+        <tr>
+            <td>#${escapeHTML(c.vehicle_id)}</td>
+            <td>${escapeHTML(c.category)}</td>
+            <td>${Number(c.amount).toFixed(2)}</td>
+            <td>${escapeHTML(c.log_date)}</td>
+            <td>${escapeHTML(c.description || "—")}</td>
+        </tr>
+    `).join("");
+}
+
+document.getElementById("costSearch")
+    .addEventListener("input", renderCosts);
+
+document.getElementById("costCategoryFilter")
+    .addEventListener("change", renderCosts);
+
+document.getElementById("refreshCosts")
+    .addEventListener("click", loadCosts);
+
+async function loadCostCharts() {
+    try {
+        const summary = await fetchAPI("/costs/summary");
+
+        const monthlyContainer = document.getElementById("monthlyCostChart");
+        const vehicleContainer = document.getElementById("vehicleCostBreakdown");
+
+        monthlyContainer.innerHTML = `
+            <div class="cost-bars">
+                ${Object.entries(summary.by_month || {}).map(([month, amount]) => `
+                    <div class="cost-bar-row">
+                        <span>${escapeHTML(month)}</span>
+                        <div class="cost-bar-track">
+                            <div class="cost-bar-fill"
+                                 style="width:${Math.max(0, Number(amount)) / Math.max(1, ...Object.values(summary.by_month).map(Number)) * 100}%">
+                            </div>
+                        </div>
+                        <strong>₹${Number(amount).toFixed(2)}</strong>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+
+        const vehicles = Object.entries(summary.by_vehicle || {})
+            .sort((a, b) => Number(b[1]) - Number(a[1]));
+
+        vehicleContainer.innerHTML = `
+            <div class="cost-bars">
+                ${vehicles.map(([vehicleId, amount]) => `
+                    <div class="cost-bar-row">
+                        <span>Vehicle #${escapeHTML(vehicleId)}</span>
+                        <div class="cost-bar-track">
+                            <div class="cost-bar-fill"
+                                 style="width:${Number(amount) / Math.max(1, ...vehicles.map(v => Number(v[1]))) * 100}%">
+                            </div>
+                        </div>
+                        <strong>₹${Number(amount).toFixed(2)}</strong>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    } catch (error) {
+        console.error("Could not load cost charts:", error);
+        document.getElementById("monthlyCostChart").textContent =
+            "Monthly chart unavailable.";
+        document.getElementById("vehicleCostBreakdown").textContent =
+            "Vehicle chart unavailable.";
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadCostCharts);
+
+async function loadCostVehicles() {
+    const vehicleSelect = document.getElementById("costVehicle");
+
+    try {
+        const response = await fetchAPI("/vehicles");
+        const vehicles = getList(response);
+
+        vehicleSelect.innerHTML =
+            '<option value="">Select a vehicle</option>';
+
+        vehicles.forEach(vehicle => {
+            const option = document.createElement("option");
+            option.value = vehicle.id;
+            option.textContent =
+                `${vehicle.name || vehicle.model || "Vehicle"} — ${vehicle.registration_number || vehicle.license_plate || vehicle.id}`;
+            vehicleSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error("Could not load vehicles:", error);
+        vehicleSelect.innerHTML =
+            '<option value="">Could not load vehicles</option>';
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadCostVehicles);
+
+document.getElementById("costForm")
+    .addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const form = event.target;
+        const message = document.getElementById("costRecordCount");
+        const submitButton = form.querySelector('button[type="submit"]');
+
+        const expense = {
+            vehicle_id: Number(form.querySelector('[name="vehicle_id"]').value),
+            category: form.querySelector('[name="category"]').value,
+            amount: Number(form.querySelector('[name="amount"]').value),
+            log_date: form.querySelector('[name="log_date"]').value,
+            description: form.querySelector('[name="description"]').value
+        };
+
+        submitButton.disabled = true;
+
+        try {
+            const response = await fetch(`${API_BASE}/costs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(expense)
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            form.reset();
+            await loadCosts();
+            await loadCostCharts();
+
+            message.textContent = "Expense saved successfully!";
+        } catch (error) {
+            console.error("Could not save expense:", error);
+            message.textContent = "Could not save expense. Check the form fields.";
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+
+document.getElementById("costForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const form = event.target;
+    const button = document.getElementById("saveCostButton");
+
+    const expense = {
+        vehicle_id: Number(form.elements["vehicle_id"].value),
+        category: form.elements["category"].value,
+        amount: Number(form.elements["amount"].value),
+        log_date: form.elements["log_date"].value || null,
+        description: form.elements["description"].value.trim() || null
+    };
+
+    button.disabled = true;
+    button.textContent = "Saving...";
+
+    try {
+        await fetchAPI("/costs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(expense)
+        });
+
+        form.reset();
+        await loadCosts();
+        await loadCostCharts();
+
+        alert("Expense added successfully!");
+    } catch (error) {
+        console.error("Could not save expense:", error);
+        alert("Could not save expense. Please check the form and try again.");
+    } finally {
+        button.disabled = false;
+        button.textContent = "+ Add expense";
+    }
 });

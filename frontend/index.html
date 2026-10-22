@@ -91,16 +91,249 @@
       </section>
     </div>
 
-    <section class="panel" id="assignments">
-      <div class="panel-heading"><div><h2>Assignments</h2><p>Manage active vehicle assignments through the team API.</p></div></div>
-      <p class="muted">Use the API documentation to review and manage assignment records.</p>
-      <a class="api-link" href="http://localhost:8000/docs" target="_blank" rel="noreferrer">Open API Documentation ↗</a>
-    </section>
+    
+<section class="panel" id="assignments">
+  <div class="panel-heading">
+    <div>
+      <h2>Vehicle Assignments</h2>
+      <p>Track driver allocations and assignment history.</p>
+    </div>
+    <select id="assignmentFilter" aria-label="Filter assignments">
+      <option value="all">All assignments</option>
+      <option value="active">Active only</option>
+      <option value="released">Released only</option>
+    </select>
+  </div>
 
-    <section class="panel" id="costs">
-      <div class="panel-heading"><div><h2>Cost Tracking</h2><p>Review fleet expenses and cost summaries.</p></div></div>
-      <a class="api-link" href="http://localhost:8000/docs" target="_blank" rel="noreferrer">Explore cost endpoints ↗</a>
-    </section>
+  <div class="stats assignment-stats">
+    <article class="stat">
+      <div class="stat-top">
+        <span>Total Assignments</span>
+        <span class="stat-icon">⇄</span>
+      </div>
+      <h2 id="totalAssignments">—</h2>
+      <p>All recorded allocations</p>
+    </article>
+
+    <article class="stat">
+      <div class="stat-top">
+        <span>Active Assignments</span>
+        <span class="stat-icon green">✓</span>
+      </div>
+      <h2 id="activeAssignments">—</h2>
+      <p>Currently in use</p>
+    </article>
+
+    <article class="stat">
+      <div class="stat-top">
+        <span>Released</span>
+        <span class="stat-icon blue">↩</span>
+      </div>
+      <h2 id="releasedAssignments">—</h2>
+      <p>Completed allocations</p>
+    </article>
+  </div>
+
+  <div class="panel-heading section-subheading">
+    <div>
+      <h2>Assignment History</h2>
+      <p>Vehicle, driver and allocation details</p>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>VEHICLE</th>
+          <th>DRIVER</th>
+          <th>ASSIGNED ON</th>
+          <th>RELEASED ON</th>
+          <th>STATUS</th>
+          <th>ACTION</th>
+        </tr>
+      </thead>
+      <tbody id="assignmentRows">
+        <tr>
+          <td colspan="7" class="empty">Loading assignments…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p id="assignmentMessage" class="section-message" aria-live="polite"></p>
+</section>
+
+<section class="panel" id="costs">
+  <div class="panel-heading">
+    <div>
+      <h2>Fleet Cost Tracking</h2>
+      <p>Monitor expenditure across vehicles and expense categories.</p>
+    </div>
+    <button type="button" id="refreshCosts">↻ Refresh costs</button>
+  </div>
+
+  <div class="stats cost-stats">
+    <article class="stat">
+      <div class="stat-top">
+        <span>Total Expenditure</span>
+        <span class="stat-icon">₹</span>
+      </div>
+      <h2 id="totalCost">—</h2>
+      <p>Across all recorded cost logs</p>
+    </article>
+
+    <article class="stat">
+      <div class="stat-top">
+        <span>Fuel Expenses</span>
+        <span class="stat-icon orange">⛽</span>
+      </div>
+      <h2 id="fuelCost">—</h2>
+      <p>Recorded fuel costs</p>
+    </article>
+
+    <article class="stat">
+      <div class="stat-top">
+        <span>Service Expenses</span>
+        <span class="stat-icon green">⚙</span>
+      </div>
+      <h2 id="serviceCost">—</h2>
+      <p>Recorded service costs</p>
+    </article>
+
+    <article class="stat">
+      <div class="stat-top">
+        <span>Parts Expenses</span>
+        <span class="stat-icon blue">🔩</span>
+      </div>
+      <h2 id="partsCost">—</h2>
+      <p>Recorded parts costs</p>
+    </article>
+  </div>
+
+  <div class="cost-grid">
+    <div class="cost-summary-card">
+      <h3>Monthly Expenditure</h3>
+      <p>Spending based on recorded expense dates</p>
+      <div id="monthlyCostChart" class="monthly-cost-chart">
+        <p class="empty">Loading monthly costs…</p>
+      </div>
+    </div>
+
+    <div class="cost-summary-card">
+      <h3>Vehicle-wise Expenditure</h3>
+      <p>Vehicles with the highest recorded costs</p>
+      <div id="vehicleCostBreakdown" class="vehicle-cost-breakdown">
+        <p class="empty">Loading vehicle costs…</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cost-entry-section">
+    <div class="panel-heading">
+      <div>
+        <h2>Record an Expense</h2>
+        <p>Add a fuel, service or parts cost to the database.</p>
+      </div>
+    </div>
+
+    <form id="costForm" class="cost-form">
+      <label>
+        Vehicle
+        <select id="costVehicle" name="vehicle_id" required>
+          <option value="">Select a vehicle</option>
+        </select>
+      </label>
+
+      <label>
+        Category
+        <select id="costCategory" name="category" required>
+          <option value="fuel">Fuel</option>
+          <option value="service">Service</option>
+          <option value="parts">Parts</option>
+        </select>
+      </label>
+
+      <label>
+        Amount
+        <input
+          type="number"
+          id="costAmount"
+          name="amount"
+          min="0"
+          step="0.01"
+          placeholder="Enter amount"
+          required
+        >
+      </label>
+
+      <label>
+        Expense date
+        <input type="date" id="costDate" name="log_date">
+      </label>
+
+      <label class="cost-description">
+        Description
+        <input
+          type="text"
+          id="costDescription"
+          name="description"
+          maxlength="250"
+          placeholder="e.g. Diesel refill or tyre replacement"
+        >
+      </label>
+
+      <button type="submit" id="saveCostButton">+ Add expense</button>
+    </form>
+    <p id="costFormMessage" class="section-message" aria-live="polite"></p>
+  </div>
+
+  <div class="panel-heading section-subheading">
+    <div>
+      <h2>Expense History</h2>
+      <p>Search and filter recorded fleet expenses.</p>
+    </div>
+  </div>
+
+  <div class="cost-filters">
+    <input
+      type="search"
+      id="costSearch"
+      placeholder="Search description or vehicle…"
+      aria-label="Search expenses"
+    >
+
+    <select id="costCategoryFilter" aria-label="Filter by expense category">
+      <option value="all">All categories</option>
+      <option value="fuel">Fuel</option>
+      <option value="service">Service</option>
+      <option value="parts">Parts</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>LOG ID</th>
+          <th>DATE</th>
+          <th>VEHICLE</th>
+          <th>CATEGORY</th>
+          <th>DESCRIPTION</th>
+          <th>AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody id="costRows">
+        <tr>
+          <td colspan="6" class="empty">Loading expense records…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p id="costRecordCount" class="record-count"></p>
+</section>
+
+    
 
     <footer>FleetFlow · Vehicle Management System</footer>
   </main>
